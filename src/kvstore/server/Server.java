@@ -9,8 +9,10 @@ import java.util.Scanner;
 public class Server {
     private ServerSocket serverSocket;
     private Map<String, String> store;
+    private boolean isLeader;
 
-    public Server() {
+    public Server(boolean isLeader) {
+    	this.isLeader = isLeader;
         store = new HashMap<>();
     }
 
@@ -33,10 +35,10 @@ public class Server {
     }
 
     public static void main(String[] args) {
-        Server server = new Server();
 
         // Read IP and port from the keyboard
         Scanner scanner = new Scanner(System.in);
+        
         System.out.print("Enter the IP address: ");
         String ipAddress = scanner.nextLine();
         System.out.print("Enter the port number: ");
@@ -47,7 +49,15 @@ public class Server {
         String leaderIp = scanner.nextLine();
         System.out.print("Enter the port number of the leader: ");
         int leaderPort = scanner.nextInt();
-
+        
+        boolean isLeader = false;
+        
+        if (ipAddress.equals(leaderIp) && port == leaderPort) {
+        	isLeader = true;
+        	System.out.print("This server is the leader! \n");
+        }
+        
+        Server server = new Server(isLeader);
         server.start(ipAddress, port, leaderIp, leaderPort);
     }
 
@@ -71,7 +81,7 @@ public class Server {
                 System.out.println("Received request: " + request);
 
                 String response;
-                if (clientSocket.getInetAddress().getHostAddress().equals(leaderIp) && clientSocket.getPort() == leaderPort) {
+                if (isLeader == true) {
                     // O servidor atual é o líder, manipule a requisição localmente
                     if (request.startsWith("GET")) {
                         String key = request.split(" ")[1];

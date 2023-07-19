@@ -19,24 +19,32 @@ public class Client {
             serverAddresses[i] = scanner.nextLine();
         }
 
-        System.out.print("Enter the key: ");
-        String key = scanner.nextLine();
+        boolean exit = false;
 
-        System.out.print("Enter the command (PUT or GET): ");
-        String command = scanner.nextLine();
+        do {
+            System.out.print("Enter the key (or type 'exit' to quit): ");
+            String key = scanner.nextLine();
 
-        if (command.equalsIgnoreCase("PUT")) {
-            System.out.print("Enter the value: ");
-            String value = scanner.nextLine();
+            if (key.equalsIgnoreCase("exit")) {
+                exit = true;
+            } else {
+                System.out.print("Enter the command (PUT or GET): ");
+                String command = scanner.nextLine();
 
-            String response = sendPutRequest(serverAddresses, key, value);
-            System.out.println("Response: " + response);
-        } else if (command.equalsIgnoreCase("GET")) {
-            String response = sendGetRequest(serverAddresses, key);
-            System.out.println("Response: " + response);
-        } else {
-            System.out.println("Invalid command");
-        }
+                if (command.equalsIgnoreCase("PUT")) {
+                    System.out.print("Enter the value: ");
+                    String value = scanner.nextLine();
+
+                    String response = sendPutRequest(serverAddresses, key, value);
+                    System.out.println("Response: " + response);
+                } else if (command.equalsIgnoreCase("GET")) {
+                    String response = sendGetRequest(serverAddresses, key);
+                    System.out.println("Response: " + response);
+                } else {
+                    System.out.println("Invalid command");
+                }
+            }
+        } while (!exit);
     }
 
     private static String sendPutRequest(String[] serverAddresses, String key, String value) {
