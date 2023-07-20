@@ -1,5 +1,8 @@
 package kvstore.server;
 
+import com.google.gson.Gson;
+import kvstore.message.Message;
+
 import java.io.*;
 import java.net.*;
 import java.util.HashMap;
@@ -7,9 +10,10 @@ import java.util.Map;
 import java.util.Scanner;
 
 public class Server {
-    private ServerSocket serverSocket;
+	private ServerSocket serverSocket;
     private Map<String, String> store;
     private boolean isLeader;
+    private static final Gson gson = new Gson();
 
     public Server(boolean isLeader) {
     	this.isLeader = isLeader;
@@ -77,29 +81,27 @@ public class Server {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true)
             ) {
-                String request = reader.readLine();
-                System.out.println("Received request: " + request);
+            	String jsonRequest = reader.readLine();
+                Message request = gson.fromJson(jsonRequest, Message.class);
+                System.out.println("Received request: " + jsonRequest);
 
                 String response;
-                if (isLeader == true) {
+                if (isLeader) {
                     // O servidor atual é o líder, manipule a requisição localmente
-                    if (request.startsWith("GET")) {
-                        String key = request.split(" ")[1];
-                        response = handleGet(key);
-                    } else if (request.startsWith("PUT")) {
-                        String[] parts = request.split(" ", 3);
-                        String key = parts[1];
-                        String value = parts[2];
-                        response = handlePut(key, value);
+                    if ("GET".equals(request.getCommand())) {
+                        response = handleGet(request.getKey());
+                    } else if ("PUT".equals(request.getCommand())) {
+                        response = handlePut(request.getKey(), request.getValue());
                     } else {
                         response = "Invalid command";
                     }
                 } else {
                     // Encaminhe a requisição para o líder
-                    response = forwardRequestToLeader(request);
+                    String jsonResponse = forwardRequestToLeader(jsonRequest);
+                    response = gson.fromJson(jsonResponse, String.class);
                 }
 
-                writer.println(response);
+                writer.println(gson.toJson(response));
                 System.out.println("Sent response: " + response);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -112,18 +114,18 @@ public class Server {
             }
         }
 
-        private String forwardRequestToLeader(String request) {
+        private String forwardRequestToLeader(String jsonRequest) {
             try (
                 Socket leaderSocket = new Socket(leaderIp, leaderPort);
                 PrintWriter writer = new PrintWriter(leaderSocket.getOutputStream(), true);
                 BufferedReader reader = new BufferedReader(new InputStreamReader(leaderSocket.getInputStream()))
             ) {
-                writer.println(request);
-                String response = reader.readLine();
-                return response;
+                writer.println(jsonRequest);
+                String jsonResponse = reader.readLine();
+                return jsonResponse;
             } catch (IOException e) {
                 e.printStackTrace();
-                return "Error forwarding request to leader";
+                return gson.toJson("Error forwarding request to leader");
             }
         }
 

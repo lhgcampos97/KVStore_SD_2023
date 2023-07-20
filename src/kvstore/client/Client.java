@@ -1,10 +1,17 @@
 package kvstore.client;
 
+
+import com.google.gson.Gson;
+import kvstore.message.Message;
+
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 
 public class Client {
+	
+	private static final Gson gson = new Gson();
+	
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
@@ -35,10 +42,12 @@ public class Client {
                     System.out.print("Enter the value: ");
                     String value = scanner.nextLine();
 
-                    String response = sendPutRequest(serverAddresses, key, value);
+                    Message message = new Message(command, key, value);
+                    String response = sendRequest(serverAddresses, message);
                     System.out.println("Response: " + response);
                 } else if (command.equalsIgnoreCase("GET")) {
-                    String response = sendGetRequest(serverAddresses, key);
+                    Message message = new Message(command, key, null);
+                    String response = sendRequest(serverAddresses, message);
                     System.out.println("Response: " + response);
                 } else {
                     System.out.println("Invalid command");
@@ -47,7 +56,7 @@ public class Client {
         } while (!exit);
     }
 
-    private static String sendPutRequest(String[] serverAddresses, String key, String value) {
+    private static String sendRequest(String[] serverAddresses, Message message) {
         String response = "Error: No servers available";
 
         for (String serverAddress : serverAddresses) {
@@ -60,8 +69,8 @@ public class Client {
                 PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))
             ) {
-                String request = "PUT " + key + " " + value;
-                writer.println(request);
+                String jsonMessage = gson.toJson(message);
+                writer.println(jsonMessage);
 
                 response = reader.readLine();
                 if (!response.equals("Error: No servers available")) {
@@ -75,31 +84,5 @@ public class Client {
         return response;
     }
 
-    private static String sendGetRequest(String[] serverAddresses, String key) {
-        String response = "Error: No servers available";
 
-        for (String serverAddress : serverAddresses) {
-            String[] parts = serverAddress.split(":");
-            String ipAddress = parts[0];
-            int port = Integer.parseInt(parts[1]);
-
-            try (
-                Socket socket = new Socket(ipAddress, port);
-                PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))
-            ) {
-                String request = "GET " + key;
-                writer.println(request);
-
-                response = reader.readLine();
-                if (!response.equals("Error: No servers available")) {
-                    break;
-                }
-            } catch (IOException e) {
-                // Server is not available
-            }
-        }
-
-        return response;
-    }
 }
