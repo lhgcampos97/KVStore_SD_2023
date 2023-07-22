@@ -113,7 +113,7 @@ public class Server {
                 Message response;
 
                 if ("GET".equals(command)) {
-                    response = handleGet(key);
+                    response = handleGet(key,timestamp);
                 } else if ("PUT".equals(command)) {
                     if (isLeader) {
                         sendReplication(request);
@@ -188,12 +188,20 @@ public class Server {
             }
         }
 
-        private Message handleGet(String key) {
+        private Message handleGet(String key, long clientTimestamp) {
             String value = store.get(key);
-            long timestamp = timestamps.getOrDefault(key, 0L); // Get the stored timestamp or use 0 if not found
+            long serverTimestamp = timestamps.getOrDefault(key, 0L); // Get the stored timestamp or use 0 if not found
+
             if (value != null) {
-                Message getMessage = new Message("GET_OK", key, value, timestamp);
-                return getMessage;
+                if (clientTimestamp < serverTimestamp) {
+                    // O timestamp do cliente é menor que o timestamp armazenado no servidor
+                    Message tryOtherServerOrLaterMessage = new Message("TRY_OTHER_SERVER_OR_LATER", key, "", serverTimestamp);
+                    return tryOtherServerOrLaterMessage;
+                } else {
+                    // O timestamp do cliente é maior ou igual ao timestamp armazenado no servidor
+                    Message getMessage = new Message("GET_OK", key, value, serverTimestamp);
+                    return getMessage;
+                }
             } else {
                 Message getMessage = new Message("NULL", key, "", 0L);
                 return getMessage;

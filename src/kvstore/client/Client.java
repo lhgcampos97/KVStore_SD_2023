@@ -58,7 +58,7 @@ public class Client {
                     
 				} else if (command.equalsIgnoreCase("GET")) {
 					
-					Long timestamp = timestampStore.get(key);
+					Long timestamp = timestampStore.getOrDefault(key, 0L);
 					
 					Message message = new Message(command, key, null, timestamp); // Pass 0 as the timestamp for GET requests
                     String response = sendRequest(serverAddresses, message);
