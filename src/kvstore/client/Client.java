@@ -6,12 +6,16 @@ import kvstore.message.Message;
 
 import java.io.*;
 import java.net.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 
 public class Client {
 
 	private static final Gson gson = new Gson();
+    private static Map<String, Long> timestampStore = new HashMap<>(); // Map to store key-timestamp pairs
+
 
 	public static void main(String[] args) {
 		Scanner scanner = new Scanner(System.in);
@@ -43,13 +47,26 @@ public class Client {
 					System.out.print("Enter the value: ");
 					String value = scanner.nextLine();
 
-					Message message = new Message(command, key, value);
-					String response = sendRequest(serverAddresses, message);
-					System.out.println("Response: " + response);
+					long timestamp = System.currentTimeMillis(); // Get the current timestamp
+					
+                    Message message = new Message(command, key, value, timestamp); // Pass the timestamp to the Message constructor
+                    String response = sendRequest(serverAddresses, message);
+                    System.out.println("Response: " + response);
+                    
+                    Message responseJson = gson.fromJson(response, Message.class);
+                    timestampStore.put(responseJson.getKey(), responseJson.getTimestamp());
+                    
 				} else if (command.equalsIgnoreCase("GET")) {
-					Message message = new Message(command, key, null);
-					String response = sendRequest(serverAddresses, message);
-					System.out.println("Response: " + response);
+					
+					Long timestamp = timestampStore.get(key);
+					
+					Message message = new Message(command, key, null, timestamp); // Pass 0 as the timestamp for GET requests
+                    String response = sendRequest(serverAddresses, message);
+                    System.out.println("Response: " + response);
+
+                    Message responseJson = gson.fromJson(response, Message.class);
+                    timestampStore.put(responseJson.getKey(), responseJson.getTimestamp());
+                    
 				} else {
 					System.out.println("Invalid command");
 				}

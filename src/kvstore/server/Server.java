@@ -12,6 +12,7 @@ import java.util.Scanner;
 public class Server {
     private ServerSocket serverSocket;
     private Map<String, String> store;
+    private Map<String, Long> timestamps;
     private Map<String, String> serverAddresses;
     private boolean isLeader;
     private static final Gson gson = new Gson();
@@ -19,6 +20,7 @@ public class Server {
     public Server(boolean isLeader) {
         this.isLeader = isLeader;
         store = new HashMap<>();
+        timestamps = new HashMap<>();
         serverAddresses = new HashMap<>();
     }
 
@@ -99,32 +101,36 @@ public class Server {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                     PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true)
             ) {
-                String jsonRequest = reader.readLine();
+            	String jsonRequest = reader.readLine();
                 Message request = gson.fromJson(jsonRequest, Message.class);
                 System.out.println("Received request: " + jsonRequest);
+                
+                String command = request.getCommand();
+                String key = request.getKey();
+                String value = request.getValue();
+                Long timestamp = request.getTimestamp();
 
-                String response;
+                Message response;
 
-                if ("GET".equals(request.getCommand())) {
-                    response = handleGet(request.getKey());
-                } else if ("PUT".equals(request.getCommand())) {
+                if ("GET".equals(command)) {
+                    response = handleGet(key);
+                } else if ("PUT".equals(command)) {
                     if (isLeader) {
                         sendReplication(request);
-                        handlePut(request.getKey(), request.getValue());
-                        response = "PUT OK";
+                        response = handlePut(key, value, timestamp); // Pass the received timestamp to the handlePut method
+
                     } else {
                         // Encaminhe a requisição para o líder
-                        String jsonResponse = forwardRequestToLeader(jsonRequest);
-                        response = gson.fromJson(jsonResponse, String.class);
+                        response = forwardRequestToLeader(jsonRequest);
                     }
-                } else if ("REPLICATION".equals(request.getCommand())) {
-                    response = handleReplication(request.getKey(), request.getValue());
+                } else if ("REPLICATION".equals(command)) {
+                    response = handleReplication(key, value, timestamp); // Pass the received timestamp to the handleReplication method
                 } else {
-                    response = "Invalid command";
+                    response =  new Message("Invalid Command",key, value, timestamp);
                 }
-
+                
                 writer.println(gson.toJson(response));
-                System.out.println("Sent response: " + response);
+                System.out.println("Sent response: " + gson.toJson(response));
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -152,7 +158,7 @@ public class Server {
                         PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)
                 ) {
                     // Create a replication message
-                    Message replicationMessage = new Message("REPLICATION", request.getKey(), request.getValue());
+                    Message replicationMessage = new Message("REPLICATION", request.getKey(), request.getValue(),request.getTimestamp());
                     String jsonMessage = gson.toJson(replicationMessage);
                     writer.println(jsonMessage);
                 } catch (IOException e) {
@@ -161,7 +167,7 @@ public class Server {
             }
         }
 
-        private String forwardRequestToLeader(String jsonRequest) {
+        private Message forwardRequestToLeader(String jsonRequest) {
             try (
                     Socket leaderSocket = new Socket(leaderIp, leaderPort);
                     PrintWriter writer = new PrintWriter(leaderSocket.getOutputStream(), true);
@@ -169,31 +175,44 @@ public class Server {
             ) {
                 writer.println(jsonRequest);
                 String jsonResponse = reader.readLine();
-                return jsonResponse;
+                return gson.fromJson(jsonResponse,Message.class);
             } catch (IOException e) {
                 e.printStackTrace();
-                return gson.toJson("Error forwarding request to leader");
+                Message request = gson.fromJson(jsonRequest, Message.class);
+                String key = request.getKey();
+                String value = request.getValue();
+                Long timestamp = request.getTimestamp();
+                
+                Message errorMessage = new Message("Error forwarding request to leader", key, value, timestamp);
+                return errorMessage;
             }
         }
 
-        private String handleGet(String key) {
+        private Message handleGet(String key) {
             String value = store.get(key);
+            long timestamp = timestamps.getOrDefault(key, 0L); // Get the stored timestamp or use 0 if not found
             if (value != null) {
-                return value;
+                Message getMessage = new Message("GET_OK", key, value, timestamp);
+                return getMessage;
             } else {
-                return "Key not found";
+                Message getMessage = new Message("NULL", key, "", 0L);
+                return getMessage;
             }
         }
 
-        private void handlePut(String key, String value) {
+        private Message handlePut(String key, String value, long timestamp) {
             store.put(key, value);
-            //return "PUT OK";
+            timestamps.put(key, timestamp); // Update the timestamp for the key
+            Message putMessage = new Message("PUT_OK", key, value, timestamp);
+            return putMessage;
         }
 
-        private String handleReplication(String key, String value) {
+        private Message handleReplication(String key, String value, long timestamp) {
             // Handle the replication message received from the leader
             store.put(key, value);
-            return "REPLICATION_OK"; // For secondary servers, just acknowledge the replication message
+            timestamps.put(key, timestamp); // Update the timestamp for the key
+            Message replicationMessage = new Message("REPLICATION_OK", key, value, timestamp);
+            return replicationMessage;
         }
     }
 }
