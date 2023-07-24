@@ -44,6 +44,7 @@ public class Client {
 	/**
 	 * Inicializa os servidores a partir da entrada do usuário.
 	 * @param scanner O objeto Scanner para ler a entrada do usuário.
+	 * @return Os endereços IP e portas dos servidores disponíveis digitados pelos usuário.
 	 */
 	private static String[] initializeServers(Scanner scanner) {
 		System.out.print("Enter the number of servers: ");
@@ -63,6 +64,7 @@ public class Client {
 	/**
 	 * Inicia o loop do cliente para solicitar comandos e interagir com os servidores.
 	 * @param scanner O objeto Scanner para ler a entrada do usuário.
+	 * @param serverAddresses Os endereços IP e portas dos servidores disponíveis.
 	 */
 	private static void startClient(Scanner scanner, String[] serverAddresses) {
 		boolean exit = false;
@@ -70,7 +72,7 @@ public class Client {
 		do {
 
 			// Trata as solicitações do usuário (PUT ou GET) e exibe as respostas recebidas dos servidores.
-			System.out.print("Enter the command (PUT or GET): ");
+			System.out.print("Enter the command (PUT, GET or exit): ");
 			String command = scanner.nextLine();
 
 			if (command.equalsIgnoreCase("exit")) {

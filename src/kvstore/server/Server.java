@@ -69,7 +69,7 @@ public class Server {
             while (true) {
             	// Aguarda conexões de clientes.
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("New connection from " + clientSocket.getInetAddress());
+                System.out.println("New connection from " + clientSocket.getInetAddress() + ":" + clientSocket.getPort());
 
                 // Cria uma thread para cada cliente conectado para tratar suas requisições.
                 ClientHandler clientHandler = new ClientHandler(clientSocket, leaderIp, leaderPort);
