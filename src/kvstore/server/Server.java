@@ -158,13 +158,17 @@ public class Server {
                     
                 } else if ("PUT".equals(command)) {
                     if (isLeader) {
-
-                        System.out.println("Cliente ["+clientSocket.getInetAddress()+"]:["+clientSocket.getPort()+"] "+command+" key:["+key+"] value:["+value+"]");
-                        sendReplication(request);
+                    	System.out.println("Cliente ["+clientSocket.getInetAddress()+"]:["+clientSocket.getPort()+"] "+command+" key:["+key+"] value:["+value+"]");
+                    	response = handlePut(key, value, timestamp); // Insere na tabela local
                         
-                        response = handlePut(key, value, timestamp); 
-                        System.out.println("Enviando PUT_OK ao Cliente ["+clientSocket.getInetAddress()+"]:["+clientSocket.getPort()+"] da key:["+key+"] ts:["+serverTimestamp+"]");
+                        Boolean putOk = sendReplication(request); // Replicação
                         
+                        if (putOk == true) {                    	
+                            System.out.println("Enviando PUT_OK ao Cliente ["+clientSocket.getInetAddress()+"]:["+clientSocket.getPort()+"] da key:["+key+"] ts:["+serverTimestamp+"]");
+                        } else {
+                        	response = new Message("PUT_ERROR",key,value,timestamp);
+                        }                       
+                       
                     } else {
                         // Encaminhe a requisição para o líder
                     	System.out.println("Encaminhando PUT key:["+key+"] value:["+value+"]");
@@ -195,8 +199,10 @@ public class Server {
          * Método para enviar as mensagens de replicação para os outros servidores secundários.
          * @param request A mensagem de requisição recebida do cliente que será replicada.
          */
-        private void sendReplication(Message request) {
+        private Boolean sendReplication(Message request) {
         	// Percorre todos os servidores secundários e envia a mensagem de replicação para cada um deles.
+        	int serverCounter = 0;
+        	
             for (String serverAddress : serverAddresses.keySet()) {
                 if (serverAddress.equals(leaderIp + ":" + leaderPort)) {
                     continue; // Pula o líder
@@ -208,15 +214,31 @@ public class Server {
 
                 try (
                         Socket socket = new Socket(ipAddress, port);
-                        PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)
+                		PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+        				BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))
                 ) {
                     // Cria a mensagem de REPLICATION
                     Message replicationMessage = new Message("REPLICATION", request.getKey(), request.getValue(),request.getTimestamp());
                     String jsonMessage = gson.toJson(replicationMessage);
                     writer.println(jsonMessage);
+                    
+        			// Retorna a resposta recebida do servidor.
+        			String response = reader.readLine();
+        			Message responseJson = gson.fromJson(response, Message.class);
+        			
+        			if (responseJson.getCommand().equals("REPLICATION_OK")) {
+        				serverCounter += 1;       				
+        			}
+        			
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            }
+            
+            if (serverCounter == serverAddresses.size() - 1) {
+            	return true;
+            } else {
+            	 return false;
             }
         }
 
