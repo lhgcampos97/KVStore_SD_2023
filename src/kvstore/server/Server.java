@@ -159,8 +159,10 @@ public class Server {
                 } else if ("PUT".equals(command)) {
                     if (isLeader) {
                     	System.out.println("Cliente ["+clientSocket.getInetAddress()+"]:["+clientSocket.getPort()+"] "+command+" key:["+key+"] value:["+value+"]");
+                    	
+                    	ClientHandler.sleep((long)(Math.random() * 10000 + 5000)); // Simulação da latência do servidor
+                    	
                     	response = handlePut(key, value, timestamp); // Insere na tabela local
-                        
                         Boolean putOk = sendReplication(request); // Replicação
                         
                         if (putOk == true) {                    	
@@ -186,7 +188,10 @@ public class Server {
                 
             } catch (IOException e) {
                 e.printStackTrace();
-            } finally {
+            } catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} finally {
                 try {
                     clientSocket.close();
                 } catch (IOException e) {
@@ -285,12 +290,13 @@ public class Server {
 
             if (value != null) {
             	// Compara o timestamp do cliente com o timestamp armazenado no servidor e responde de acordo.
-                if (clientTimestamp < serverTimestamp) {
-                    // O timestamp do cliente é menor que o timestamp armazenado no servidor
+                if (serverTimestamp < clientTimestamp) {
+                	
                     Message tryOtherServerOrLaterMessage = new Message("TRY_OTHER_SERVER_OR_LATER", key, "TRY_OTHER_SERVER_OR_LATER", serverTimestamp);
                     return tryOtherServerOrLaterMessage;
-                } else {
-                    // O timestamp do cliente é maior ou igual ao timestamp armazenado no servidor
+                    
+                } else { // (serverTimestamp >= clientTimestamp)
+
                     Message getMessage = new Message("GET", key, value, serverTimestamp);
                     return getMessage;
                 }

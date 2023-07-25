@@ -98,7 +98,7 @@ public class Client {
 				String key = scanner.nextLine();
 
 				// Caso a chave não tenha um timestamp atrelado, retorna 0
-				Long timestamp = timestampStore.getOrDefault(key, 0L);
+				long timestamp = timestampStore.getOrDefault(key, 0L);
 
 				Message message = new Message(command, key, null, timestamp); 
 				Message responseJson = sendRequest(serverAddresses, message);
