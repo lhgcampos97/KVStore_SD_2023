@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Scanner;
 
 /**
- * Classe do Servidor responsável por armazenar os dados em uma estrutura de dados (Map) e
+ * Classe do Servidor responsável por armazenar os dados em uma estrutura de dados e
  * atender às solicitações dos clientes.
  * 
  * Projeto realizado para a disciplina Sistemas Distribuídos - UFABC
@@ -47,7 +47,7 @@ public class Server {
         try {
         	// Inicia o servidor socket
             serverSocket = new ServerSocket(port, 10, InetAddress.getByName(ipAddress));
-            System.out.println("Server started on " + ipAddress + ":" + port);
+            System.out.println("Seridor começou em " + ipAddress + ":" + port);
 
             if (isLeader) {
                 // Adiciona o líder na tabela
@@ -55,12 +55,12 @@ public class Server {
 
                 //Lê os endereços e portas dos servidores secundários
                 Scanner scanner = new Scanner(System.in);
-                System.out.print("Enter the number of secondary servers: ");
+                System.out.print("Digite o número de servidores secundários: ");
                 int numSecondaryServers = scanner.nextInt();
                 scanner.nextLine(); 
 
                 for (int i = 0; i < numSecondaryServers; i++) {
-                    System.out.print("Enter the IP address and port number of secondary server " + (i + 1) + " (e.g., localhost:8001): ");
+                    System.out.print("Digite o endereço IP:porta dos servidores secundários " + (i + 1) + " (e.g., localhost:8001): ");
                     String secondaryServerAddress = scanner.nextLine();
                     serverAddresses.put(secondaryServerAddress, "Secondary");
                 }
@@ -69,7 +69,7 @@ public class Server {
             while (true) {
             	// Aguarda conexões de clientes.
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("New connection from " + clientSocket.getInetAddress() + ":" + clientSocket.getPort());
+                System.out.println("Nova conexão de " + clientSocket.getInetAddress() + ":" + clientSocket.getPort());
 
                 // Cria uma thread para cada cliente conectado para tratar suas requisições.
                 ClientHandler clientHandler = new ClientHandler(clientSocket, leaderIp, leaderPort);
@@ -88,22 +88,22 @@ public class Server {
     	// Lê o endereço IP e a porta do servidor a partir da entrada do usuário.
         Scanner scanner = new Scanner(System.in);
 
-        System.out.print("Enter the IP address: ");
+        System.out.print("Digite o endereço IP: ");
         String ipAddress = scanner.nextLine();
-        System.out.print("Enter the port number: ");
+        System.out.print("Digite a porta: ");
         int port = scanner.nextInt();
         scanner.nextLine(); 
 
-        System.out.print("Enter the IP address of the leader: ");
+        System.out.print("Digite o endereço IP do líder: ");
         String leaderIp = scanner.nextLine();
-        System.out.print("Enter the port number of the leader: ");
+        System.out.print("Digite a porta do líder: ");
         int leaderPort = scanner.nextInt();
 
         boolean isLeader = false;
 
         if (ipAddress.equals(leaderIp) && port == leaderPort) {
             isLeader = true;
-            System.out.print("This server is the leader! \n");
+            System.out.print("Este servidor é o líder! \n");
         }
 
         // Inicia o servidor com as informações lidas.
@@ -142,36 +142,44 @@ public class Server {
             	// Lê a mensagem enviada pelo cliente e a converte para o objeto Message usando Gson.
             	String jsonRequest = reader.readLine();
                 Message request = gson.fromJson(jsonRequest, Message.class);
-                System.out.println("Received request: " + jsonRequest);
                 
                 String command = request.getCommand();
                 String key = request.getKey();
                 String value = request.getValue();
                 Long timestamp = request.getTimestamp();
+                long serverTimestamp = System.currentTimeMillis();
 
                 Message response;
 
                 // Verifica o tipo de comando da mensagem e chama o método apropriado para tratá-la.
                 if ("GET".equals(command)) {
                     response = handleGet(key,timestamp);
+                    System.out.println("Cliente ["+clientSocket.getInetAddress()+"]:["+clientSocket.getPort()+"] "+command+" key:["+key+"] ts:["+timestamp+"]. Meu ts é ["+response.getTimestamp()+"], portanto devolvendo ["+response.getValue()+"]");
+                    
                 } else if ("PUT".equals(command)) {
                     if (isLeader) {
-                        sendReplication(request);
-                        response = handlePut(key, value, timestamp); 
 
+                        System.out.println("Cliente ["+clientSocket.getInetAddress()+"]:["+clientSocket.getPort()+"] "+command+" key:["+key+"] value:["+value+"]");
+                        sendReplication(request);
+                        
+                        response = handlePut(key, value, timestamp); 
+                        System.out.println("Enviando PUT_OK ao Cliente ["+clientSocket.getInetAddress()+"]:["+clientSocket.getPort()+"] da key:["+key+"] ts:["+serverTimestamp+"]");
+                        
                     } else {
                         // Encaminhe a requisição para o líder
+                    	System.out.println("Encaminhando PUT key:["+key+"] value:["+value+"]");
                         response = forwardRequestToLeader(jsonRequest);
                     }
                 } else if ("REPLICATION".equals(command)) {
+                	System.out.println("REPLICATION key:["+key+"] value:["+value+"] ts:["+timestamp+"]");
                     response = handleReplication(key, value, timestamp); 
                 } else {
-                    response =  new Message("Invalid Command",key, value, timestamp);
+                    response =  new Message("Erro",key, value, timestamp);
                 }
                 
                 // Prepara a resposta e envia de volta ao cliente.
                 writer.println(gson.toJson(response));
-                System.out.println("Sent response: " + gson.toJson(response));
+                
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -257,11 +265,11 @@ public class Server {
             	// Compara o timestamp do cliente com o timestamp armazenado no servidor e responde de acordo.
                 if (clientTimestamp < serverTimestamp) {
                     // O timestamp do cliente é menor que o timestamp armazenado no servidor
-                    Message tryOtherServerOrLaterMessage = new Message("TRY_OTHER_SERVER_OR_LATER", key, "", serverTimestamp);
+                    Message tryOtherServerOrLaterMessage = new Message("TRY_OTHER_SERVER_OR_LATER", key, "TRY_OTHER_SERVER_OR_LATER", serverTimestamp);
                     return tryOtherServerOrLaterMessage;
                 } else {
                     // O timestamp do cliente é maior ou igual ao timestamp armazenado no servidor
-                    Message getMessage = new Message("GET_OK", key, value, serverTimestamp);
+                    Message getMessage = new Message("GET", key, value, serverTimestamp);
                     return getMessage;
                 }
             } else {

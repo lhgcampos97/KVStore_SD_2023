@@ -29,7 +29,7 @@ public class Client {
 	public static void main(String[] args) {
 		Scanner scanner = new Scanner(System.in);
 
-		System.out.print("Enter the command (INIT): ");
+		System.out.print("Digite o comando (INIT) para iniciar o cliente: ");
 		String initCommand = scanner.nextLine();
 
 		if (initCommand.equalsIgnoreCase("INIT")) {
@@ -37,7 +37,7 @@ public class Client {
 			String[] serverAddresses = initializeServers(scanner);
 			startClient(scanner,serverAddresses);
 		} else {
-			System.out.println("Invalid command. Client initialization failed.");
+			System.out.println("Comando inválido. Falha na inicialiazação do cliente.");
 		}
 	}
 
@@ -47,14 +47,14 @@ public class Client {
 	 * @return Os endereços IP e portas dos servidores disponíveis digitados pelos usuário.
 	 */
 	private static String[] initializeServers(Scanner scanner) {
-		System.out.print("Enter the number of servers: ");
+		System.out.print("Digite o número de servidores: ");
 		int numServers = scanner.nextInt();
 		scanner.nextLine(); 
 
 		String[] serverAddresses = new String[numServers];
 
 		for (int i = 0; i < numServers; i++) {
-			System.out.print("Enter the IP address and port number of server " + (i + 1) + " (e.g., localhost:8000): ");
+			System.out.print("Digite o endereço IP:porta dos servidores " + (i + 1) + " (e.g., localhost:8000): ");
 			serverAddresses[i] = scanner.nextLine();
 		}
 		
@@ -72,45 +72,41 @@ public class Client {
 		do {
 
 			// Trata as solicitações do usuário (PUT ou GET) e exibe as respostas recebidas dos servidores.
-			System.out.print("Enter the command (PUT, GET or exit): ");
+			System.out.print("Digite o comando (PUT, GET ou exit): ");
 			String command = scanner.nextLine();
 
 			if (command.equalsIgnoreCase("exit")) {
 				exit = true;
 			} else if (command.equalsIgnoreCase("PUT")) {
 
-				System.out.print("Enter the key (or type 'exit' to quit): ");
+				System.out.print("Digite a key: ");
 				String key = scanner.nextLine();
 
-				System.out.print("Enter the value: ");
+				System.out.print("Digite o value: ");
 				String value = scanner.nextLine();
 
 				long timestamp = System.currentTimeMillis(); // Armazena o timestamp atual
 
 				Message message = new Message(command, key, value, timestamp);
-				String response = sendRequest(serverAddresses, message);
-				System.out.println("Response: " + response);
+				Message responseJson = sendRequest(serverAddresses, message);
 
-				Message responseJson = gson.fromJson(response, Message.class);
 				timestampStore.put(responseJson.getKey(), responseJson.getTimestamp());
 
 			} else if (command.equalsIgnoreCase("GET")) {
 
-				System.out.print("Enter the key (or type 'exit' to quit): ");
+				System.out.print("Digite a chave: ");
 				String key = scanner.nextLine();
 
 				// Caso a chave não tenha um timestamp atrelado, retorna 0
 				Long timestamp = timestampStore.getOrDefault(key, 0L);
 
 				Message message = new Message(command, key, null, timestamp); 
-				String response = sendRequest(serverAddresses, message);
-				System.out.println("Response: " + response);
+				Message responseJson = sendRequest(serverAddresses, message);
 
-				Message responseJson = gson.fromJson(response, Message.class);
 				timestampStore.put(responseJson.getKey(), responseJson.getTimestamp());
 
 			} else {
-				System.out.println("Invalid command");
+				System.out.println("Comando inválido");
 			}
 
 		} while (!exit);
@@ -122,12 +118,12 @@ public class Client {
 	 * @param message A mensagem de solicitação a ser enviada ao servidor.
 	 * @return A resposta recebida do servidor ou uma mensagem de erro, caso não seja possível conectar ao servidor.
 	 */
-	private static String sendRequest(String[] serverAddresses, Message message) {
+	private static Message sendRequest(String[] serverAddresses, Message message) {
 		// Seleciona aleatoriamente um servidor para enviar a solicitação.
 		Random random = new Random();
 		String randomServerAddress = serverAddresses[random.nextInt(serverAddresses.length)];
 
-		String response = gson.toJson(new Message("Error: No servers available", "", "", 0L));
+		Message responseJson = new Message("Error: Server não disponível", "", "", 0L);
 
 		String[] parts = randomServerAddress.split(":");
 		String ipAddress = parts[0];
@@ -143,14 +139,25 @@ public class Client {
 			writer.println(jsonMessage);
 
 			// Retorna a resposta recebida do servidor.
-			response = reader.readLine();
-			return response;
+			String response = reader.readLine();
+			responseJson = gson.fromJson(response, Message.class);
+			
+			if (responseJson.getCommand().equals("PUT_OK")) {
+				System.out.println(responseJson.getCommand() +" key: ["+ responseJson.getKey()+"] value ["+responseJson.getValue()+"] timestamp ["+ responseJson.getTimestamp() +"] realizada no servidor ["+ipAddress+":"+port+"]");
+			} else if (responseJson.getCommand().equals("GET")) { 
+				System.out.println(responseJson.getCommand() +" key: ["+ responseJson.getKey()+"] value ["+responseJson.getValue()+"] obtido do servidor ["+ipAddress+":"+port+"], meu timestamp ["+message.getTimestamp()+"] e timestamp do servidor ["+responseJson.getTimestamp()+"]");
+			} else {
+				System.out.println(responseJson.getCommand());
+			}
+			return responseJson;
+			
 		} catch (IOException e) {
 			// Servidor não disponível
 		}
 
 		// Ou uma mensagem de erro, caso não seja possível conectar ao servidor.
-		return response;
+		System.out.println(responseJson.getCommand());
+		return responseJson;
 	}
 
 }
