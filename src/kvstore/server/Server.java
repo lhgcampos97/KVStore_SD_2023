@@ -270,7 +270,7 @@ public class Server {
                 String value = request.getValue();
                 Long timestamp = request.getTimestamp();
                 
-                Message errorMessage = new Message("Error forwarding request to leader", key, value, timestamp);
+                Message errorMessage = new Message("Erro ao encaminhar mensagem", key, value, timestamp);
                 return errorMessage;
             }
         }
